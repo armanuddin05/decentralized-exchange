@@ -8,7 +8,8 @@ pragma solidity ^0.8.19;
 // /**
 //  * @title BrokerLoan
 //  * @author Arman Uddin
-//  * @dev Interest-free margin trading with deadline-based liquidationwo
+//  * @dev Margin trading featues for a decentralized broker loan system.
+//  * This contract allows users to deposit collateral, borrow assets, and trade with leverage.
 //  */
 
 

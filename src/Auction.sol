@@ -12,15 +12,15 @@ import "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 
 
 /**
- * @title Auction - Production-Level Centralized Exchange
+ * @title Production-Level Decentralized Paper Trading Exchange
  * @author Arman Uddin
- * @notice Hybrid centralized exchange with off-chain matching and on-chain settlement
+ * @notice Hybrid decentralized exchange with off-chain matching and on-chain settlement
  * @dev Optimized for gas efficiency, security, and performance
  */
 
 
 
-contract Auction is ReentrancyGuard, Pausable, EIP712 {
+contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
 
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
@@ -28,6 +28,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712 {
     // CONSTANTS & ROLES
     // =============================================================================
     
+    bytes32 public constant ADMIN_ROLE = 0x00;
     bytes32 public constant MATCHER_ROLE = keccak256("MATCHER_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
@@ -41,9 +42,11 @@ contract Auction is ReentrancyGuard, Pausable, EIP712 {
         "Trade(uint256 buyOrderId,uint256 sellOrderId,uint256 amount,uint256 price,uint256 timestamp,uint256 nonce)"
     );
 
-
+    mapping(bytes32 => mapping(address => bool)) private _roles;
+    
+    
     // =============================================================================
-    // 1. CORE DATA STRUCTURES (Define these first)
+    // CORE DATA STRUCTURES & ENUMS
     // =============================================================================
     
     enum OrderType { 
@@ -148,11 +151,36 @@ contract Auction is ReentrancyGuard, Pausable, EIP712 {
     mapping(bytes32 => uint256) public low24h;
 
 
-    // Events
 
     // Errors
     error InvalidAmount();
     error InsufficientBalance();
+    // error AccessControlUnauthorizedAccount(address account, bytes32 neededRole);
+
+    // =============================================================================
+    //                            Custom Access Control
+    // =============================================================================
+    // function hasRole(bytes32 role, address account) public view returns (bool) {
+    //     return _roles[role][account];
+    // }
+    // function grantRole(bytes32 role, address account) internal {
+    //     if (!hasRole(ADMIN_ROLE, msg.sender)) {
+    //         revert AccessControlUnauthorizedAccount(msg.sender, ADMIN_ROLE);
+    //     }
+    //     if (!hasRole(role, account)) {
+    //         _roles[role][account] = true;
+    //         emit RoleGranted(role, account, msg.sender);
+    //     }
+    // }
+    // function revokeRole(bytes32 role, address account) internal {
+    //     if (!hasRole(ADMIN_ROLE, msg.sender)) {
+    //         revert AccessControlUnauthorizedAccount(msg.sender, ADMIN_ROLE);
+    //     }
+    //     if (hasRole(role, account)) {
+    //         _roles[role][account] = false;
+    //         emit RoleRevoked(role, account, msg.sender);
+    //     }
+    // }
 
 
 
@@ -272,6 +300,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712 {
             enabled: true
         });
     }
+
+
 
     function deposit(address token, uint256 amount) external nonReentrant {
         if (amount <= 0) {
