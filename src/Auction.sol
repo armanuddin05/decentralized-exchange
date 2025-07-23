@@ -24,8 +24,9 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
 
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
+
     // =============================================================================
-    // CONSTANTS & ROLES
+    //                             CONSTANTS & ROLES
     // =============================================================================
     
     bytes32 public constant ADMIN_ROLE = 0x00;
@@ -46,7 +47,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     
     
     // =============================================================================
-    // CORE DATA STRUCTURES & ENUMS
+    //                      CORE DATA STRUCTURES & ENUMS
     // =============================================================================
     
     enum OrderType { 
@@ -120,7 +121,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         bool enabled;
     }
     // =============================================================================
-    // 2. STATE VARIABLES (Your exchange's memory)
+    //                              STATE VARIABLES 
     // =============================================================================
     
     mapping(uint256 => Order) public orders;                    // orderId → Order
@@ -187,7 +188,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
 
 
     // =============================================================================
-    // EVENTS
+    //                                  EVENTS
     // =============================================================================
     
     event OrderPlaced(
@@ -278,7 +279,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
     
     // =============================================================================
-    // CONSTRUCTOR
+    //                                  CONSTRUCTOR
     // =============================================================================
     
     constructor(
@@ -404,7 +405,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // 5. TRADE SETTLEMENT FUNCTIONS (Matcher Only)
+    //                  TRADE SETTLEMENT FUNCTIONS (Matcher Only)
     // =============================================================================
     
     function batchSettleTrades(
@@ -482,7 +483,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // 6. SIGNATURE VERIFICATION (Security)
+    //                      SIGNATURE VERIFICATION (Security)
     // =============================================================================
     
     function _verifyOrderSignature(Order memory order, bytes memory signature) internal {
@@ -511,7 +512,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // 7. TRADING PAIR MANAGEMENT (Admin Functions)
+    //                  TRADING PAIR MANAGEMENT (Admin Functions)
     // =============================================================================
     
     function addTradingPair(
@@ -551,7 +552,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // 8. EMERGENCY & ADMIN FUNCTIONS
+    //                          EMERGENCY & ADMIN FUNCTIONS
     // =============================================================================
     
     function emergencyPause() external {
@@ -582,7 +583,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // 9. VIEW FUNCTIONS (Read-Only Data)
+    //                      VIEW FUNCTIONS (Read-Only Data)
     // =============================================================================
     
     function getOrder(uint256 orderId) external view returns (Order memory) {
@@ -619,7 +620,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // 10. MARKET DATA UPDATE FUNCTIONS (Internal)
+    //                     MARKET DATA UPDATE FUNCTIONS (Internal)
     // =============================================================================
     
     function _updateMarketData(Trade memory trade) internal {
@@ -635,7 +636,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    // IMPLEMENTATION ORDER RECOMMENDATION:
+    //                     IMPLEMENTATION ORDER RECOMMENDATION:
     // =============================================================================
     /*
     
@@ -668,11 +669,12 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     */
 
 
+    
+    //=============================================================================
+    //           INTEGRATION WITH YOUR BACKEND (match.ts):
+    //=============================================================================
+    
     /*
-    =============================================================================
-    INTEGRATION WITH YOUR BACKEND (match.ts):
-    =============================================================================
-
     Your backend flow will be:
     1. Listen for OrderPlaced events
     2. Store orders in your off-chain order book

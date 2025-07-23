@@ -115,7 +115,7 @@ abstract contract Auction {
     }
 
 
-   // Backend order functions, buyer or sller calls these with three inputs
+    // Backend order functions, buyer or sller calls these with three inputs
     function BidLimitOrder(uint256 _amount, uint256 _limitPrice) public {
         /**
         * Buy at a maximum price or lower
