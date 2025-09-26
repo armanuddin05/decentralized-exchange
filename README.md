@@ -1,3 +1,3 @@
-# Crypto Exchange
-### DEX to simulate paper trading. Includes best UI/UX charts from beginner to advanced.
+# crypto exchange
+### DEX that includes proper paper trading simulation. includes best UI/UX charts for beginners to learn from.
 
