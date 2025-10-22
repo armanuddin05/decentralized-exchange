@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
@@ -9,19 +9,13 @@ import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 
-
-
 /**
  * @title Production-Level Decentralized Paper Trading Exchange
  * @author Arman Uddin
  * @notice Hybrid decentralized exchange with off-chain matching and on-chain settlement
  * @dev Optimized for gas efficiency, security, and performance
  */
-
-
-
 contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
-
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
@@ -38,35 +32,39 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     bytes32 private constant ORDER_TYPEHASH = keccak256(
         "Order(uint256 id,address trader,address baseToken,address quoteToken,uint256 amount,uint256 price,uint256 triggerPrice,uint256 deadline,uint8 orderType,uint8 side,uint256 nonce)"
     );
-    
+
     bytes32 private constant TRADE_TYPEHASH = keccak256(
         "Trade(uint256 buyOrderId,uint256 sellOrderId,uint256 amount,uint256 price,uint256 timestamp,uint256 nonce)"
     );
 
     mapping(bytes32 => mapping(address => bool)) private _roles;
-    
-    
+
     // =============================================================================
     //                      CORE DATA STRUCTURES & ENUMS
     // =============================================================================
-    
-    enum OrderType { 
-        Market,    // Buy/sell immediately at current price
-        Limit,     // Buy/sell only at specific price or better
-        Stop,      // Trigger order when price hits stop level
+
+    enum OrderType {
+        Market, // Buy/sell immediately at current price
+        Limit, // Buy/sell only at specific price or better
+        Stop, // Trigger order when price hits stop level
         StopLimit, // Stop + Limit combined
-        OCO        // One-Cancels-Other (two orders, one executes)
+        OCO // One-Cancels-Other (two orders, one executes)
+
     }
 
     // Side of an order
-    enum Side { Buy, Sell }
+    enum Side {
+        Buy,
+        Sell
+    }
 
     // Current state of an order
-    enum OrderStatus { 
-        Active,    // Order is live and can be matched
-        Filled,    // Order completely executed
+    enum OrderStatus {
+        Active, // Order is live and can be matched
+        Filled, // Order completely executed
         Cancelled, // User cancelled the order
-        Expired    // Order deadline passed
+        Expired // Order deadline passed
+
     }
 
     // Details of a placed orderd
@@ -75,15 +73,12 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         address trader;
         address baseToken;
         address quoteToken;
-
         uint256 amount;
         uint256 price;
         uint256 triggerPrice;
         uint256 deadline;
-
         uint256 filledAmount;
         uint256 nonce;
-
         uint256 timestamp;
         OrderType orderType;
         Side side;
@@ -95,12 +90,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         uint256 id;
         uint256 buyOrderId;
         uint256 sellOrderId;
-
         address buyer;
         address seller;
         address baseToken;
         address quoteToken;
-
         uint256 amount;
         uint256 price;
         uint256 buyerFee;
@@ -114,44 +107,41 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         uint256 locked;
     }
 
-     struct FeeStructure {
-        uint256 makerFee;       // Basis points (100 = 1%)
-        uint256 takerFee;       // Basis points
-        uint256 maxFee;         // Maximum fee cap
+    struct FeeStructure {
+        uint256 makerFee; // Basis points (100 = 1%)
+        uint256 takerFee; // Basis points
+        uint256 maxFee; // Maximum fee cap
         bool enabled;
     }
     // =============================================================================
-    //                              STATE VARIABLES 
+    //                              STATE VARIABLES
     // =============================================================================
-    
-    mapping(uint256 => Order) public orders;                    // orderId → Order
-    mapping(uint256 => Trade) public trades;                    // tradeId → Trade
+
+    mapping(uint256 => Order) public orders; // orderId → Order
+    mapping(uint256 => Trade) public trades; // tradeId → Trade
     mapping(address => mapping(address => Balance)) public balances; // user → token → balance
     address public feeRecipient;
     FeeStructure public defaultFees;
 
-
     // Security and control
-    mapping(address => bool) public whitelistedTokens;          // Which tokens allowed
-    mapping(address => bool) public blacklistedUsers;           // Banned users
-    mapping(address => uint256) public nonces;                  // Prevent replay attacks
+    mapping(address => bool) public whitelistedTokens; // Which tokens allowed
+    mapping(address => bool) public blacklistedUsers; // Banned users
+    mapping(address => uint256) public nonces; // Prevent replay attacks
 
     // Counters
-    uint256 public orderCounter;     // Next order ID
-    uint256 public tradeCounter;     // Next trade ID
+    uint256 public orderCounter; // Next order ID
+    uint256 public tradeCounter; // Next trade ID
 
     uint256 public maxOrdersPerUser = 1000;
     uint256 public maxTradesPerBlock = 100;
     uint256 public tradesInCurrentBlock;
     uint256 public currentBlock;
-    
+
     // Market data
     mapping(bytes32 => uint256) public lastPrices;
     mapping(bytes32 => uint256) public volume24h;
     mapping(bytes32 => uint256) public high24h;
     mapping(bytes32 => uint256) public low24h;
-
-
 
     // Errors
     error InvalidAmount();
@@ -183,14 +173,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     //     }
     // }
 
-
-
-
-
     // =============================================================================
     //                                  EVENTS
     // =============================================================================
-    
+
     event OrderPlaced(
         uint256 indexed orderId,
         address indexed trader,
@@ -201,13 +187,9 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         Side side,
         OrderType orderType
     );
-    
-    event OrderCancelled(
-        uint256 indexed orderId,
-        address indexed trader,
-        uint256 remainingAmount
-    );
-    
+
+    event OrderCancelled(uint256 indexed orderId, address indexed trader, uint256 remainingAmount);
+
     event TradeExecuted(
         uint256 indexed tradeId,
         uint256 indexed buyOrderId,
@@ -219,55 +201,38 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         uint256 amount,
         uint256 price
     );
-    
-    event DepositMade(
-        address indexed user,
-        address indexed token,
-        uint256 amount
-    );
-    
-    event WithdrawalMade(
-        address indexed user,
-        address indexed token,
-        uint256 amount
-    );
-    
-    event TradingPairAdded(
-        address indexed baseToken,
-        address indexed quoteToken,
-        bytes32 indexed pairHash
-    );
-    
-    event FeeStructureUpdated(
-        address indexed user,
-        uint256 makerFee,
-        uint256 takerFee
-    );
+
+    event DepositMade(address indexed user, address indexed token, uint256 amount);
+
+    event WithdrawalMade(address indexed user, address indexed token, uint256 amount);
+
+    event TradingPairAdded(address indexed baseToken, address indexed quoteToken, bytes32 indexed pairHash);
+
+    event FeeStructureUpdated(address indexed user, uint256 makerFee, uint256 takerFee);
 
     // =============================================================================
     // MODIFIERS
     // =============================================================================
-    
+
     modifier onlyMatcher() {
         require(hasRole(MATCHER_ROLE, msg.sender), "Not authorized matcher"); // make gas efficient
         _;
     }
-    
+
     modifier onlyOperator() {
         require(hasRole(OPERATOR_ROLE, msg.sender), "Not authorized operator"); // make gas efficient
         _;
     }
-    
+
     modifier validTradingPair(address baseToken, address quoteToken) {
-        
         _;
     }
-    
+
     modifier notBlacklisted(address user) {
         require(!blacklistedUsers[user], "User is blacklisted");
         _;
     }
-    
+
     modifier rateLimit() {
         if (block.number != currentBlock) {
             currentBlock = block.number;
@@ -277,18 +242,14 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         tradesInCurrentBlock++;
         _;
     }
-    
+
     // =============================================================================
     //                                  CONSTRUCTOR
     // =============================================================================
-    
-    constructor(
-        address _feeRecipient,
-        uint256 _defaultMakerFee,
-        uint256 _defaultTakerFee
-    ) EIP712("Auction", "1") {
+
+    constructor(address _feeRecipient, uint256 _defaultMakerFee, uint256 _defaultTakerFee) EIP712("Auction", "1") {
         require(_feeRecipient != address(0), "Invalid fee recipient"); // make gas efficient
-        
+
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(OPERATOR_ROLE, msg.sender);
         _grantRole(EMERGENCY_ROLE, msg.sender);
@@ -302,18 +263,15 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         });
     }
 
-
-
     function deposit(address token, uint256 amount) external nonReentrant {
         if (amount <= 0) {
             revert InvalidAmount();
         }
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
     }
 
-    function withdraw(address token, uint256 amount) external nonReentrant{
+    function withdraw(address token, uint256 amount) external nonReentrant {
         if (amount <= 0) {
             revert InvalidAmount();
         }
@@ -324,17 +282,16 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     function sendTokens(address token, address receiver, uint256 amount) external nonReentrant {
         IERC20(token).safeTransfer(receiver, amount);
     }
+
     function receiveTokens(address token, uint256 amount, address sender) external nonReentrant {
         IERC20(token).safeTransferFrom(sender, msg.sender, amount);
     }
 
-    function getBalance(address user, address token) external view returns (uint256, uint256) {
-
-    }
+    function getBalance(address user, address token) external view returns (uint256, uint256) {}
 
     function placeOrder(
         address baseToken,
-        address quoteToken, 
+        address quoteToken,
         uint256 amount,
         uint256 price,
         uint8 orderType,
@@ -355,7 +312,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Validate signature, check balance, lock funds, validate inputs
         */
     }
-    
+
     function cancelOrder(uint256 orderId) external {
         /*
         PURPOSE: Users can cancel their orders before they're filled
@@ -369,7 +326,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Only order owner can cancel, check order exists and is active
         */
     }
-    
+
     function _validateOrder(Order memory order) internal view {
         /*
         PURPOSE: Check if an order is valid before accepting it
@@ -382,7 +339,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         NOTES: Internal function, called by placeOrder
         */
     }
-    
+
     function _lockFunds(Order memory order) internal {
         /*
         PURPOSE: Reserve user's funds when they place an order
@@ -394,7 +351,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         NOTES: Internal function, called by placeOrder
         */
     }
-    
+
     function _unlockFunds(Order memory order) internal {
         /*
         PURPOSE: Return locked funds when order is cancelled or filled
@@ -407,11 +364,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                  TRADE SETTLEMENT FUNCTIONS (Matcher Only)
     // =============================================================================
-    
-    function batchSettleTrades(
-        Trade[] calldata filledTrades,
-        bytes[] calldata signatures
-    ) external {
+
+    function batchSettleTrades(Trade[] calldata filledTrades, bytes[] calldata signatures) external {
         /*
         PURPOSE: Your backend calls this to execute matched trades
         IMPLEMENT:
@@ -426,7 +380,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHO CALLS: Your match.ts backend after finding matches
         */
     }
-    
+
     function _settleTrade(Trade memory trade, bytes memory signature) internal {
         /*
         PURPOSE: Execute a single trade (called by batchSettleTrades)
@@ -440,7 +394,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         NOTES: Internal function, does the heavy lifting
         */
     }
-    
+
     function _validateTrade(Trade memory trade) internal view {
         /*
         PURPOSE: Check if a trade is valid before executing
@@ -453,7 +407,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         NOTES: Internal function, called by _settleTrade
         */
     }
-    
+
     function _executeTrade(Trade memory trade) internal {
         /*
         PURPOSE: Actually move the tokens and update balances
@@ -468,7 +422,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         NOTES: Internal function, the core of trading
         */
     }
-    
+
     function _calculateFee(address user, uint256 amount, bool isMaker) internal view returns (uint256) {
         /*
         PURPOSE: Calculate how much fee to charge for a trade
@@ -485,7 +439,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                      SIGNATURE VERIFICATION (Security)
     // =============================================================================
-    
+
     function _verifyOrderSignature(Order memory order, bytes memory signature) internal {
         /*
         PURPOSE: Prove the user actually created this order
@@ -498,7 +452,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         NOTES: Uses EIP-712 standard for typed data signing
         */
     }
-    
+
     function _verifyTradeSignature(Trade memory trade, bytes memory signature) internal view {
         /*
         PURPOSE: Prove your matcher actually created this trade
@@ -514,13 +468,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                  TRADING PAIR MANAGEMENT (Admin Functions)
     // =============================================================================
-    
-    function addTradingPair(
-        address baseToken,
-        address quoteToken,
-        uint256 minOrderSize,
-        uint256 maxOrderSize
-    ) external {
+
+    function addTradingPair(address baseToken, address quoteToken, uint256 minOrderSize, uint256 maxOrderSize)
+        external
+    {
         /*
         PURPOSE: Add new token pairs for trading (like ETH/USDC)
         IMPLEMENT:
@@ -532,7 +483,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Only operators can add pairs, validate tokens
         */
     }
-    
+
     function whitelistToken(address token) external {
         /*
         PURPOSE: Allow a token to be used in trading
@@ -541,7 +492,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Only operators can whitelist
         */
     }
-    
+
     function setFeeStructure(address user, uint256 makerFee, uint256 takerFee) external {
         /*
         PURPOSE: Set custom fee rates for VIP users
@@ -554,7 +505,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                          EMERGENCY & ADMIN FUNCTIONS
     // =============================================================================
-    
+
     function emergencyPause() external {
         /*
         PURPOSE: Stop all trading in emergency
@@ -563,7 +514,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Only emergency role can pause
         */
     }
-    
+
     function emergencyWithdraw(address token, uint256 amount) external {
         /*
         PURPOSE: Admin can withdraw tokens in extreme emergency
@@ -572,7 +523,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Only emergency role, use very carefully
         */
     }
-    
+
     function blacklistUser(address user) external {
         /*
         PURPOSE: Ban malicious users from trading
@@ -585,7 +536,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                      VIEW FUNCTIONS (Read-Only Data)
     // =============================================================================
-    
+
     function getOrder(uint256 orderId) external view returns (Order memory) {
         /*
         PURPOSE: Get order details by ID
@@ -593,7 +544,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Frontend needs to display order info
         */
     }
-    
+
     function getTrade(uint256 tradeId) external view returns (Trade memory) {
         /*
         PURPOSE: Get trade details by ID
@@ -601,15 +552,15 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Frontend needs to display trade history
         */
     }
-    
-    function getMarketData(address baseToken, address quoteToken) external view  {
+
+    function getMarketData(address baseToken, address quoteToken) external view {
         /*
         PURPOSE: Get market statistics for a trading pair
         IMPLEMENT: Return stored market data from mappings
         WHY: Frontend needs to show charts and statistics
         */
     }
-    
+
     function getUserOrders(address user) external view returns (uint256[] memory) {
         /*
         PURPOSE: Get all orders for a specific user
@@ -622,7 +573,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                     MARKET DATA UPDATE FUNCTIONS (Internal)
     // =============================================================================
-    
+
     function _updateMarketData(Trade memory trade) internal {
         /*
         PURPOSE: Update price/volume statistics when trade happens
@@ -668,12 +619,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     
     */
 
-
-    
     //=============================================================================
     //           INTEGRATION WITH YOUR BACKEND (match.ts):
     //=============================================================================
-    
+
     /*
     Your backend flow will be:
     1. Listen for OrderPlaced events
@@ -692,11 +641,4 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     - Update market data
 
     */
-
-
-
-
-
-
-    
 }

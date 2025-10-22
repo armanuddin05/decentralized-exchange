@@ -1,9 +1,6 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.19;
-
-
-
 
 // /**
 //  * @title BrokerLoan
@@ -11,9 +8,6 @@ pragma solidity ^0.8.19;
 //  * @dev Margin trading featues for a decentralized broker loan system.
 //  * This contract allows users to deposit collateral, borrow assets, and trade with leverage.
 //  */
-
-
-
 
 // contract BrokerLoan {
 //     struct Position {
@@ -33,50 +27,47 @@ pragma solidity ^0.8.19;
 
 //     // --- Collateral Management ---
 //     function depositCollateral(address token, uint256 amount) external {
-        
+
 //     }
 
 //     function withdrawCollateral(address token, uint256 amount) external {
-        
+
 //     }
 
 //     // --- Loan Management ---
 //     function borrowAsset(address token, uint256 amount) external {
-        
+
 //     }
 
 //     function repayLoan(address token, uint256 amount) external {
-        
+
 //     }
 
 //     // --- Leverage Trading ---
 //     function openLeveragePosition(address token, uint256 amount, uint256 leverage) external {
-        
+
 //     }
 
 //     function closeLeveragePosition(uint256 positionId) external {
-        
+
 //     }
 
 //     // --- Liquidation ---
 //     function checkLiquidation(address user) public view returns (bool) {
-        
+
 //     }
 
 //     function liquidate(address user) external {
-        
+
 //     }
 
 //     // --- Utility Views ---
 //     function getUserPositions(address user) external view returns (Position[] memory) {
-        
+
 //     }
 
 //     function getCollateral(address user, address token) external view returns (uint256) {
-        
+
 //     }
 
-
-
 // }
-

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 // Layout of Contract:
@@ -30,24 +30,32 @@ pragma solidity ^0.8.19;
 // import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 // import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
-
-
-
-
 /**
  * @title Auction
  * @notice Personal Project, not open for public
  * @author Arman Uddin
  * @dev Centralized crypto market auctions exchange
  */
-
-
 abstract contract Auction {
-
     // Struct for every order
-    enum OrderType { MarketUSD, MarketCoin, Limit, Stop, StopLimit, OCO }
-    enum Side { Buy, Sell }
-    enum OrderStatus { Active, Pending, Filled, Canceled }
+    enum OrderType {
+        MarketUSD,
+        MarketCoin,
+        Limit,
+        Stop,
+        StopLimit,
+        OCO
+    }
+    enum Side {
+        Buy,
+        Sell
+    }
+    enum OrderStatus {
+        Active,
+        Pending,
+        Filled,
+        Canceled
+    }
 
     struct Order {
         uint256 id;
@@ -61,6 +69,7 @@ abstract contract Auction {
         Side side;
         OrderStatus status;
     }
+
     struct YourPosition {
         uint256 quantity;
         uint256 avgCost;
@@ -68,6 +77,7 @@ abstract contract Auction {
         uint256 todaysReturn;
         uint256 totalReturn;
     }
+
     struct OCOOrder {
         uint256 id;
         Order limitOrder;
@@ -76,11 +86,9 @@ abstract contract Auction {
         address owner;
         bool isActive; // true until one executes
     }
-    
 
     mapping(address => Order[]) internal userHistory;
     mapping(uint256 => Order) public ordersById;
-
 
     // State Variables
     address public owner;
@@ -96,15 +104,15 @@ abstract contract Auction {
     uint256 wkhigh; // reset at end of week for both
     uint256 wklow;
     uint256 circulatingSupply; // update by the minute
-    uint256 dayVolume; // reset at end of day 
+    uint256 dayVolume; // reset at end of day
     uint256 totalVolume; // update by the minute
     uint256 marketCap; // currentPrice * totalVolume
-    
 
     modifier onlyOrderer(uint256 orderId) {
         require((bids[orderId].buyer == msg.sender) || (asks[orderId].seller == msg.sender), "Not buyer or seller");
         _;
     }
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
@@ -114,12 +122,11 @@ abstract contract Auction {
         owner = msg.sender;
     }
 
-
     // Backend order functions, buyer or sller calls these with three inputs
     function BidLimitOrder(uint256 _amount, uint256 _limitPrice) public {
         /**
-        * Buy at a maximum price or lower
-        */
+         * Buy at a maximum price or lower
+         */
         Order memory newBid = Order({
             id: orderCounter++,
             amount: _amount,
@@ -135,14 +142,12 @@ abstract contract Auction {
         bids.push(newBid);
         userHistory[msg.sender].push(newBid);
         ordersById[newBid.id] = newBid;
-
-        
-        
     }
+
     function BidStopOrder(uint256 _amount, uint256 _stopPrice) public {
         /**
-        * Trigger a buy at a minimum price or higher
-        */
+         * Trigger a buy at a minimum price or higher
+         */
         Order memory newBid = Order({
             id: orderCounter++,
             amount: _amount,
@@ -157,12 +162,12 @@ abstract contract Auction {
         });
         pendingBids.push(newBid);
         ordersById[newBid.id] = newBid;
-    
     }
+
     function AskLimitOrder(uint256 _amount, uint256 _limitPrice) public {
         /**
-        * Sell at a minimum price or higher
-        */
+         * Sell at a minimum price or higher
+         */
         Order memory newAsk = Order({
             id: orderCounter++,
             amount: _amount,
@@ -178,29 +183,28 @@ abstract contract Auction {
         asks.push(newAsk);
         userHistory[msg.sender].push(newAsk);
         ordersById[newAsk.id] = newAsk;
-        
     }
+
     function AskStopOrder(uint256 _amount, uint256 _stopPrice) public {
         /**
-        * Trigger a sell at a maximum price or lower
-        */
-            Order memory newAsk = Order({
-                id: orderCounter++,
-                amount: _amount,
-                buyer: address(0),
-                seller: msg.sender,
-                price: _stopPrice,
-                triggerPrice: _stopPrice,
-                timestamp: block.timestamp,
-                orderType: OrderType.Stop,
-                side: Side.Sell,
-                status: OrderStatus.Pending
-            });
-            pendingAsks.push(newAsk);
-            ordersById[newAsk.id] = newAsk;
-
-        
+         * Trigger a sell at a maximum price or lower
+         */
+        Order memory newAsk = Order({
+            id: orderCounter++,
+            amount: _amount,
+            buyer: address(0),
+            seller: msg.sender,
+            price: _stopPrice,
+            triggerPrice: _stopPrice,
+            timestamp: block.timestamp,
+            orderType: OrderType.Stop,
+            side: Side.Sell,
+            status: OrderStatus.Pending
+        });
+        pendingAsks.push(newAsk);
+        ordersById[newAsk.id] = newAsk;
     }
+
     function BidStopLimitOrder(uint256 _amount, uint256 _stopPrice, uint256 _limitPrice) public {
         //if (currentPrice >= _stopPrice){ // bid stop
         //   if (currentPrice <= _limitPrice) { // bid limit
@@ -221,6 +225,7 @@ abstract contract Auction {
         //    }
         //}
     }
+
     function AskStopLimitOrder(uint256 _amount, uint256 _stopPrice, uint256 _limitPrice) public {
         //if (currentPrice <= _stopPrice) { // ask stop
         //    if (currentPrice >= _limitPrice) { // ask limit
@@ -241,6 +246,7 @@ abstract contract Auction {
         //    }
         //}
     }
+
     function ocoBidOrder(uint256 _amount, uint256 _stopPrice, uint256 _limitPrice) public {
         Order memory newLimitBid = Order({
             id: orderCounter++,
@@ -271,11 +277,8 @@ abstract contract Auction {
         });
         pendingBids.push(newStopBid);
         ordersById[newStopBid.id] = newStopBid;
-        
-
-        
-
     }
+
     function ocoAskOrder(uint256 _amount, uint256 _stopPrice, uint256 _limitPrice) public {
         Order memory newLimitBid = Order({
             id: orderCounter++,
@@ -291,7 +294,6 @@ abstract contract Auction {
         });
         asks.push(newLimitBid);
         ordersById[newLimitBid.id] = newLimitBid;
-        
 
         Order memory newStopBid = Order({
             id: orderCounter++,
@@ -309,16 +311,17 @@ abstract contract Auction {
         ordersById[newStopBid.id] = newStopBid;
     }
 
-
-    function bidOrder(uint256 _amount,uint256 _price, uint256 _stopPrice, uint256 _limitPrice, OrderType _orderType) public {
-        /** 
-        *   Market order - USD
-        *   Market order - Coin
-        *   Limit order
-        *   Stop order
-        *   Stop limit order
-        *   OCO order
-        */
+    function bidOrder(uint256 _amount, uint256 _price, uint256 _stopPrice, uint256 _limitPrice, OrderType _orderType)
+        public
+    {
+        /**
+         *   Market order - USD
+         *   Market order - Coin
+         *   Limit order
+         *   Stop order
+         *   Stop limit order
+         *   OCO order
+         */
         if (_orderType == OrderType.MarketUSD || _orderType == OrderType.MarketCoin) {
             Order memory newBid = Order({
                 id: orderCounter++,
@@ -336,29 +339,31 @@ abstract contract Auction {
             userHistory[msg.sender].push(newBid);
             ordersById[newBid.id] = newBid;
         }
-        if (_orderType == OrderType.Limit){
+        if (_orderType == OrderType.Limit) {
             BidLimitOrder(_amount, _limitPrice);
         }
-        if (_orderType == OrderType.Stop){
+        if (_orderType == OrderType.Stop) {
             BidStopOrder(_amount, _stopPrice);
         }
-        if (_orderType == OrderType.StopLimit){
+        if (_orderType == OrderType.StopLimit) {
             BidStopLimitOrder(_amount, _stopPrice, _limitPrice);
         }
-        if (_orderType == OrderType.OCO){
+        if (_orderType == OrderType.OCO) {
             ocoBidOrder(_amount, _stopPrice, _limitPrice);
         }
-
     }
-    function askOrder(uint256 _amount, uint256 _price, uint256 _stopPrice, uint256 _limitPrice, OrderType _orderType) public{
-        /** 
-        *   Market order - USD
-        *   Market order - Coin
-        *   Limit order
-        *   Stop order
-        *   Stop limit order
-        *   OCO order
-        */
+
+    function askOrder(uint256 _amount, uint256 _price, uint256 _stopPrice, uint256 _limitPrice, OrderType _orderType)
+        public
+    {
+        /**
+         *   Market order - USD
+         *   Market order - Coin
+         *   Limit order
+         *   Stop order
+         *   Stop limit order
+         *   OCO order
+         */
         if (_orderType == OrderType.MarketUSD || _orderType == OrderType.MarketCoin) {
             Order memory newAsk = Order({
                 id: orderCounter++,
@@ -377,19 +382,18 @@ abstract contract Auction {
             ordersById[newAsk.id] = newAsk;
         }
 
-        if (_orderType == OrderType.Limit){
+        if (_orderType == OrderType.Limit) {
             AskLimitOrder(_amount, _limitPrice);
         }
-        if (_orderType == OrderType.Stop){
+        if (_orderType == OrderType.Stop) {
             AskStopOrder(_amount, _stopPrice);
         }
-        if (_orderType == OrderType.StopLimit){
+        if (_orderType == OrderType.StopLimit) {
             AskStopLimitOrder(_amount, _stopPrice, _limitPrice);
         }
-        if (_orderType == OrderType.OCO){
+        if (_orderType == OrderType.OCO) {
             ocoAskOrder(_amount, _stopPrice, _limitPrice);
         }
-
     }
 
     // function matchOrders() public {
@@ -399,7 +403,7 @@ abstract contract Auction {
     //     for (uint i = 0; i < bids.length; i++) {
     //         if (bids[i].status != OrderStatus.Active) continue; // skips non-active bids
 
-    //         uint bestAskIndex = type(uint).max; 
+    //         uint bestAskIndex = type(uint).max;
     //         uint bestAskPrice = type(uint).max;
 
     //         for (uint j = 0; j < asks.length; j++) {
@@ -422,14 +426,14 @@ abstract contract Auction {
     //     }
     // }
 
-    function cancelOrder(uint256 _id) public onlyOrderer(_id){
+    function cancelOrder(uint256 _id) public onlyOrderer(_id) {
         /**
-        * applies to all orders
-        * accessible only to the orderer
-        */
+         * applies to all orders
+         * accessible only to the orderer
+         */
         bool found = false;
 
-        for (uint i = 0; i < bids.length; i++) {
+        for (uint256 i = 0; i < bids.length; i++) {
             if (bids[i].id == _id && bids[i].status == OrderStatus.Active) {
                 bids[i].status = OrderStatus.Canceled;
                 found = true;
@@ -438,7 +442,7 @@ abstract contract Auction {
         }
 
         if (!found) {
-            for (uint j = 0; j < asks.length; j++) {
+            for (uint256 j = 0; j < asks.length; j++) {
                 if (asks[j].id == _id && asks[j].status == OrderStatus.Active) {
                     asks[j].status = OrderStatus.Canceled;
                     found = true;
@@ -447,65 +451,49 @@ abstract contract Auction {
             }
         }
     }
-    function modifyOrder(
-        uint256 _id, uint256 _amount, 
-        uint256 _newStopPrice, uint256 _newLimitPrice) 
-        public onlyOrderer(_id){
+
+    function modifyOrder(uint256 _id, uint256 _amount, uint256 _newStopPrice, uint256 _newLimitPrice)
+        public
+        onlyOrderer(_id)
+    {
         /**
-        * applies to limit orders, stop orders, oco, and stop limits, not market orders
-        * changes include: amount, price, duration in time, limits and stops
-        * accessible only to the orderer
-        */
+         * applies to limit orders, stop orders, oco, and stop limits, not market orders
+         * changes include: amount, price, duration in time, limits and stops
+         * accessible only to the orderer
+         */
         Order storage order = ordersById[_id];
         Order storage nextOrder = ordersById[_id + 1];
-        require(
-            order.buyer == msg.sender || order.seller == msg.sender,
-            "Not the order owner"
-        );
+        require(order.buyer == msg.sender || order.seller == msg.sender, "Not the order owner");
 
-        if (order.orderType == OrderType.Limit){
+        if (order.orderType == OrderType.Limit) {
             order.amount = _amount;
             order.price = _newLimitPrice;
         }
-        if (order.orderType == OrderType.Stop){
+        if (order.orderType == OrderType.Stop) {
             order.amount = _amount;
             order.triggerPrice = _newStopPrice;
         }
-        if (order.orderType == OrderType.StopLimit){
+        if (order.orderType == OrderType.StopLimit) {
             order.amount = _amount;
             order.price = _newLimitPrice;
             order.triggerPrice = _newStopPrice;
         }
-        if (order.orderType == OrderType.OCO){
+        if (order.orderType == OrderType.OCO) {
             order.price = _newLimitPrice;
             nextOrder.price = _newStopPrice;
             nextOrder.triggerPrice = _newStopPrice;
         }
-
-
-
-
     }
 
     function viewBids() public view returns (Order[] memory) {
         return bids;
     }
+
     function viewAsks() public view returns (Order[] memory) {
         return asks;
     }
+
     function viewHistory() public view returns (Order[] memory) {
         return userHistory[msg.sender];
     }
-
-
-
-
-
-
 }
-
-
-
-
-
-
