@@ -301,7 +301,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     ) external returns (uint256 orderId) {
         /*
         PURPOSE: Users place buy/sell orders
-        IMPLEMENT: 
+        IMPLEMENT:
         - Create Order struct
         - Validate order parameters
         - Verify user's signature (EIP-712)
@@ -316,7 +316,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     function cancelOrder(uint256 orderId) external {
         /*
         PURPOSE: Users can cancel their orders before they're filled
-        IMPLEMENT: 
+        IMPLEMENT:
         - Check user owns the order
         - Check order is still active
         - Change order status to cancelled
@@ -330,7 +330,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     function _validateOrder(Order memory order) internal view {
         /*
         PURPOSE: Check if an order is valid before accepting it
-        IMPLEMENT: 
+        IMPLEMENT:
         - Check amount > 0, price > 0 (if limit order)
         - Check deadline hasn't passed
         - Check trading pair exists
@@ -593,30 +593,21 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     
     1. FIRST: Define structs, enums, state variables
        - This is your foundation
-    
     2. SECOND: Balance management (deposit, withdraw, getBalance)
        - Test users can put money in and take it out
-    
     3. THIRD: Basic order placement (placeOrder, cancelOrder)
        - Test users can create and cancel orders
-    
     4. FOURTH: Signature verification functions
        - Security is critical
-    
     5. FIFTH: Trade settlement functions
        - This is where trades actually happen
-    
     6. SIXTH: Admin functions (trading pairs, whitelisting)
        - Add operational controls
-    
     7. SEVENTH: View functions
        - Frontend integration
-    
     8. LAST: Emergency functions and advanced features
        - Polish and safety features
-    
     TEST EACH PART THOROUGHLY BEFORE MOVING TO THE NEXT!
-    
     */
 
     //=============================================================================
