@@ -28,12 +28,12 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                             CONSTANTS & ROLES
     // =============================================================================
-    
+
     bytes32 public constant ADMIN_ROLE = 0x00;
     bytes32 public constant MATCHER_ROLE = keccak256("MATCHER_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
-    
+
     // EIP-712 type hashes
     bytes32 private constant ORDER_TYPEHASH = keccak256(
         "Order(uint256 id,address trader,address baseToken,address quoteToken,uint256 amount,uint256 price,uint256 triggerPrice,uint256 deadline,uint8 orderType,uint8 side,uint256 nonce)"
@@ -292,7 +292,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(OPERATOR_ROLE, msg.sender);
         _grantRole(EMERGENCY_ROLE, msg.sender);
-        
+
         feeRecipient = _feeRecipient;
         defaultFees = FeeStructure({
             makerFee: _defaultMakerFee,
