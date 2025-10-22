@@ -586,7 +586,6 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                     IMPLEMENTATION ORDER RECOMMENDATION:
     // =============================================================================
-    
     /*
     1. FIRST: Define structs, enums, state variables
        - This is your foundation
@@ -608,19 +607,19 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     */
 
     //=============================================================================
-    //           INTEGRATION WITH YOUR BACKEND (match.ts):
+    //           INTEGRATION WITH BACKEND (match.ts):
     //=============================================================================
 
     /*
-    Your backend flow will be:
+    backend flow will be:
     1. Listen for OrderPlaced events
-    2. Store orders in your off-chain order book
-    3. Match orders using your algorithm
+    2. Store orders in off-chain order book
+    3. Match orders using algorithm
     4. Create Trade structs for matches
-    5. Sign trades with your matcher private key
+    5. Sign trades with matcher private key
     6. Call batchSettleTrades() with the trades
 
-    Your backend needs to:
+    backend needs to:
     - Maintain the order book in memory/database
     - Implement price-time priority matching
     - Generate valid EIP-712 signatures
