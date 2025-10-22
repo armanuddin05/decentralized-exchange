@@ -49,7 +49,6 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         Stop, // Trigger order when price hits stop level
         StopLimit, // Stop + Limit combined
         OCO // One-Cancels-Other (two orders, one executes)
-
     }
 
     // Side of an order
@@ -64,7 +63,6 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         Filled, // Order completely executed
         Cancelled, // User cancelled the order
         Expired // Order deadline passed
-
     }
 
     // Details of a placed orderd
@@ -470,8 +468,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
 
     function addTradingPair(address baseToken, address quoteToken, uint256 minOrderSize, uint256 maxOrderSize)
-        external
-    {
+        external {
         /*
         PURPOSE: Add new token pairs for trading (like ETH/USDC)
         IMPLEMENT:
@@ -589,8 +586,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     //                     IMPLEMENTATION ORDER RECOMMENDATION:
     // =============================================================================
-    /*
     
+    /*
     1. FIRST: Define structs, enums, state variables
        - This is your foundation
     2. SECOND: Balance management (deposit, withdraw, getBalance)
