@@ -267,6 +267,9 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         }
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        balances[msg.sender][token].available += amount;
+
+        emit DepositMade(msg.sender, token, amount);
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant {
@@ -274,7 +277,14 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
             revert InvalidAmount();
         }
 
+        if (balances[msg.sender][token].available < amount) {
+            revert InsufficientBalance();
+        }
+        balances[msg.sender][token].available -= amount;
         IERC20(token).safeTransfer(msg.sender, amount);
+        
+
+        emit WithdrawalMade(msg.sender, token, amount);
     }
 
     function sendTokens(address token, address receiver, uint256 amount) external nonReentrant {
@@ -285,7 +295,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         IERC20(token).safeTransferFrom(sender, msg.sender, amount);
     }
 
-    function getBalance(address user, address token) external view returns (uint256, uint256) {}
+    function getBalance(address user, address token) external view returns (uint256, uint256) {
+        Balance memory bal = balances[user][token];
+        return (bal.available, bal.locked);
+    }
 
     function placeOrder(
         address baseToken,
@@ -296,7 +309,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         uint8 side,
         uint256 deadline,
         bytes memory signature
-    ) external returns (uint256 orderId) {
+    ) external nonReentrant whenNotPaused notBlacklisted(msg.sender) returns (uint256 orderId) {
+        
         /*
         PURPOSE: Users place buy/sell orders
         IMPLEMENT:
@@ -309,6 +323,30 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: This is how users express intent to trade
         SECURITY: Validate signature, check balance, lock funds, validate inputs
         */
+        orderId = ++orderCounter;
+        Order memory newOrder = Order({
+            id: orderId,
+            trader: msg.sender,
+            baseToken: baseToken,
+            quoteToken: quoteToken,
+            amount: amount,
+            price: price,
+            triggerPrice: 0,
+            deadline: deadline,
+            filledAmount: 0,
+            nonce: nonces[msg.sender]++,
+            timestamp: block.timestamp,
+            orderType: OrderType(orderType),
+            side: Side(side),
+            status: OrderStatus.Active
+        });
+
+        _validateOrder(newOrder);
+        _verifyOrderSignature(newOrder, signature);
+        _lockFunds(newOrder);
+        orders[orderId] = newOrder;
+
+        emit OrderPlaced(orderId, msg.sender, baseToken, quoteToken, amount, price, Side(side), OrderType(orderType));
     }
 
     function cancelOrder(uint256 orderId) external {
@@ -584,7 +622,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     }
 
     // =============================================================================
-    //                     IMPLEMENTATION ORDER RECOMMENDATION:
+    //                     IMPLEMENTATION ORDER:
     // =============================================================================
     /*
     1. FIRST: Define structs, enums, state variables
@@ -603,7 +641,6 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
        - Frontend integration
     8. LAST: Emergency functions and advanced features
        - Polish and safety features
-    TEST EACH PART THOROUGHLY BEFORE MOVING TO THE NEXT!
     */
 
     //=============================================================================
