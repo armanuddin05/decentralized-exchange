@@ -361,6 +361,14 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Users change their mind or want different price
         SECURITY: Only order owner can cancel, check order exists and is active
         */
+
+        Order storage order = orders[orderId];
+        require(order.trader == msg.sender, "Not your order");
+        require(order.status == OrderStatus.Active, "Order not active");
+        order.status = OrderStatus.Cancelled;
+        _unlockFunds(order);
+
+        emit OrderCancelled(orderId, msg.sender, order.amount - order.filledAmount);
     }
 
     function _validateOrder(Order memory order) internal view {
@@ -374,6 +382,13 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Prevent invalid orders from entering the system
         NOTES: Internal function, called by placeOrder
         */
+        require(order.amount > 0, "Amount must be > 0");
+        if (order.orderType == OrderType.Limit || order.orderType == OrderType.StopLimit) {
+            require(order.price > 0, "Price must be > 0 for limit orders");
+        }
+        require(order.deadline > block.timestamp, "Order deadline passed");
+        require(whitelistedTokens[order.baseToken], "Base token not whitelisted");
+        require(whitelistedTokens[order.quoteToken], "Quote token not whitelisted");
     }
 
     function _lockFunds(Order memory order) internal {
@@ -386,6 +401,16 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Prevents users from spending same money twice
         NOTES: Internal function, called by placeOrder
         */
+        if (order.side == Side.Buy) {
+            uint256 totalCost = (order.amount * order.price) / 1e18; // assuming price is in quoteToken per baseToken
+            require(balances[order.trader][order.quoteToken].available >= totalCost, "Insufficient balance to buy");
+            balances[order.trader][order.quoteToken].available -= totalCost;
+            balances[order.trader][order.quoteToken].locked += totalCost;
+        } else {
+            require(balances[order.trader][order.baseToken].available >= order.amount, "Insufficient balance to sell");
+            balances[order.trader][order.baseToken].available -= order.amount;
+            balances[order.trader][order.baseToken].locked += order.amount;
+        }
     }
 
     function _unlockFunds(Order memory order) internal {
@@ -395,6 +420,14 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Users get their money back when order is done
         NOTES: Internal function, called by cancelOrder or settlement
         */
+        if (order.side == Side.Buy) {
+            uint256 totalCost = (order.amount * order.price) / 1e18;
+            balances[order.trader][order.quoteToken].locked -= totalCost;
+            balances[order.trader][order.quoteToken].available += totalCost;
+        } else {
+            balances[order.trader][order.baseToken].locked -= order.amount;
+            balances[order.trader][order.baseToken].available += order.amount;
+        }
     }
 
     // =============================================================================
