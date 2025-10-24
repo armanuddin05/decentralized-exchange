@@ -111,6 +111,12 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         uint256 maxFee; // Maximum fee cap
         bool enabled;
     }
+    struct TradingPair {
+        address baseToken;
+        address quoteToken;
+        uint256 minOrderSize;
+        uint256 maxOrderSize;
+    }
     // =============================================================================
     //                              STATE VARIABLES
     // =============================================================================
@@ -125,6 +131,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     mapping(address => bool) public whitelistedTokens; // Which tokens allowed
     mapping(address => bool) public blacklistedUsers; // Banned users
     mapping(address => uint256) public nonces; // Prevent replay attacks
+    mapping(uint256 => TradingPair) public tradingPairs; // pairId → TradingPair
+    mapping(address => FeeStructure) public userFees; // Custom fees per user
 
     // Counters
     uint256 public orderCounter; // Next order ID
@@ -207,6 +215,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     event TradingPairAdded(address indexed baseToken, address indexed quoteToken, bytes32 indexed pairHash);
 
     event FeeStructureUpdated(address indexed user, uint256 makerFee, uint256 takerFee);
+
+    event TokenWhitelisted(address indexed token);
 
     // =============================================================================
     // MODIFIERS
@@ -319,7 +329,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         - Verify user's signature (EIP-712)
         - Lock user's funds (so they can't double-spend)
         - Store order in mapping
-        - Emit event for your backend to see
+        - Emit event for backend to see
         WHY: This is how users express intent to trade
         SECURITY: Validate signature, check balance, lock funds, validate inputs
         */
@@ -363,7 +373,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         */
 
         Order storage order = orders[orderId];
-        require(order.trader == msg.sender, "Not your order");
+        require(order.trader == msg.sender, "Not order");
         require(order.status == OrderStatus.Active, "Order not active");
         order.status = OrderStatus.Cancelled;
         _unlockFunds(order);
@@ -436,7 +446,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
 
     function batchSettleTrades(Trade[] calldata filledTrades, bytes[] calldata signatures) external {
         /*
-        PURPOSE: Your backend calls this to execute matched trades
+        PURPOSE: backend calls this to execute matched trades
         IMPLEMENT:
         - Check caller has MATCHER_ROLE
         - Loop through trades array
@@ -446,7 +456,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         - Collect fees
         WHY: This is where trades actually happen (money changes hands)
         SECURITY: Only matcher can call, verify all signatures, validate trades
-        WHO CALLS: Your match.ts backend after finding matches
+        WHO CALLS: match.ts backend after finding matches
         */
     }
 
@@ -524,13 +534,13 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
 
     function _verifyTradeSignature(Trade memory trade, bytes memory signature) internal view {
         /*
-        PURPOSE: Prove your matcher actually created this trade
+        PURPOSE: Prove matcher actually created this trade
         IMPLEMENT:
         - Create EIP-712 hash of trade data
         - Recover signer address from signature
         - Check signer has MATCHER_ROLE
         WHY: Security - prevents fake trades
-        NOTES: Only your backend should be able to create valid trade signatures
+        NOTES: Only backend should be able to create valid trade signatures
         */
     }
 
@@ -550,6 +560,16 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Control which tokens can be traded together
         SECURITY: Only operators can add pairs, validate tokens
         */
+        // Create and store the trading pair
+        TradingPair memory newPair = TradingPair({
+            baseToken: baseToken,
+            quoteToken: quoteToken,
+            minOrderSize: minOrderSize,
+            maxOrderSize: maxOrderSize
+        });
+        uint256 pairId = uint256(keccak256(abi.encodePacked(baseToken, quoteToken)));
+        tradingPairs[pairId] = newPair;
+        emit TradingPairAdded(baseToken, quoteToken, bytes32(pairId));
     }
 
     function whitelistToken(address token) external {
@@ -559,6 +579,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Security - only allow trusted tokens
         SECURITY: Only operators can whitelist
         */
+        whitelistedTokens[token] = true;
+        emit TokenWhitelisted(token);
     }
 
     function setFeeStructure(address user, uint256 makerFee, uint256 takerFee) external {
@@ -568,6 +590,13 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Reward high-volume traders with lower fees
         SECURITY: Only operators can set fees
         */
+        userFees[user] = FeeStructure({
+            makerFee: makerFee,
+            takerFee: takerFee,
+            maxFee: 1000, // 10% max fee
+            enabled: true
+        });
+        emit FeeStructureUpdated(user, makerFee, takerFee);
     }
 
     // =============================================================================
@@ -659,7 +688,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     // =============================================================================
     /*
     1. FIRST: Define structs, enums, state variables
-       - This is your foundation
+       - This is foundation
     2. SECOND: Balance management (deposit, withdraw, getBalance)
        - Test users can put money in and take it out
     3. THIRD: Basic order placement (placeOrder, cancelOrder)
