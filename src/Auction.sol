@@ -728,6 +728,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         IMPLEMENT: Return order from mapping
         WHY: Frontend needs to display order info
         */
+        return orders[orderId];
     }
 
     function getTrade(uint256 tradeId) external view returns (Trade memory) {
@@ -736,14 +737,21 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         IMPLEMENT: Return trade from mapping
         WHY: Frontend needs to display trade history
         */
+        return trades[tradeId];
     }
 
-    function getMarketData(address baseToken, address quoteToken) external view {
+    function getMarketData(address baseToken, address quoteToken) external view returns (uint256, uint256, uint256, uint256) {
         /*
         PURPOSE: Get market statistics for a trading pair
         IMPLEMENT: Return stored market data from mappings
         WHY: Frontend needs to show charts and statistics
         */
+        bytes32 pairHash = keccak256(abi.encodePacked(baseToken, quoteToken));
+        uint256 lastPrice = lastPrices[pairHash];
+        uint256 volume = volume24h[pairHash];
+        uint256 high = high24h[pairHash];
+        uint256 low = low24h[pairHash];
+        return (lastPrice, volume, high, low);
     }
 
     function getUserOrders(address user) external view returns (uint256[] memory) {
@@ -753,6 +761,14 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Frontend needs to show user's order history
         NOTES: Consider pagination for large datasets
         */
+        uint256[] memory userOrderIds = new uint256[](orderCounter);
+        uint256 count = 0;
+        for (uint256 i = 1; i <= orderCounter; i++) {
+            if (orders[i].trader == user) {
+                userOrderIds[count++] = i;
+            }
+        }
+        return userOrderIds;
     }
 
     // =============================================================================
@@ -769,6 +785,16 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Provide real-time market data
         NOTES: Called by _executeTrade
         */
+        bytes32 pairHash = keccak256(abi.encodePacked(trade.baseToken, trade.quoteToken));
+        lastPrices[pairHash] = trade.price;
+        volume24h[pairHash] += trade.amount;
+        if (trade.price > high24h[pairHash] || high24h[pairHash] == 0) {
+            high24h[pairHash] = trade.price;
+        }
+        if (trade.price < low24h[pairHash] || low24h[pairHash] == 0) {
+            low24h[pairHash] = trade.price;
+        }
+
     }
 
     // =============================================================================
