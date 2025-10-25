@@ -444,12 +444,12 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     //                  TRADE SETTLEMENT FUNCTIONS (Matcher Only)
     // =============================================================================
 
-    function batchSettleTrades(Trade[] calldata filledTrades, bytes[] calldata signatures) external {
+    function batchSettleTrades(Trade[] calldata filledTrades, bytes[] calldata signatures) external onlyMatcher(){
         /*
         PURPOSE: backend calls this to execute matched trades
         IMPLEMENT:
-        - Check caller has MATCHER_ROLE
-        - Loop through trades array
+        - Check caller has MATCHER_ROLE CHECK
+        - Loop through trades array 
         - For each trade: verify signature, validate, execute
         - Update order filled amounts
         - Transfer tokens between users
@@ -458,6 +458,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         SECURITY: Only matcher can call, verify all signatures, validate trades
         WHO CALLS: match.ts backend after finding matches
         */
+        require(filledTrades.length == signatures.length, "Mismatched inputs");
+        for (uint256 i = 0; i < filledTrades.length; i++) {
+            _settleTrade(filledTrades[i], signatures[i]);
+        }
     }
 
     function _settleTrade(Trade memory trade, bytes memory signature) internal {
@@ -472,9 +476,12 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Actually executes the token transfer
         NOTES: Internal function, does the heavy lifting
         */
+        _verifyTradeSignature(trade, signature);
+        _validateTrade(trade);
+        _executeTrade(trade);
     }
 
-    function _validateTrade(Trade memory trade) internal view {
+    function _validateTrade(Trade memory trade) internal pure {
         /*
         PURPOSE: Check if a trade is valid before executing
         IMPLEMENT:
@@ -485,6 +492,9 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Prevent invalid trades from executing
         NOTES: Internal function, called by _settleTrade
         */
+        require(trade.buyer != address(0) && trade.seller != address(0), "Invalid trade"); // improve for gas efficiency
+        require(trade.amount > 0, "Invalid trade amount");
+        require(trade.price > 0, "Invalid trade price");
     }
 
     function _executeTrade(Trade memory trade) internal {
@@ -500,6 +510,35 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: This is where the money actually moves
         NOTES: Internal function, the core of trading
         */
+        Order storage buyOrder = orders[trade.buyOrderId];
+        Order storage sellOrder = orders[trade.sellOrderId];
+        buyOrder.filledAmount += trade.amount;
+        sellOrder.filledAmount += trade.amount;
+        if (buyOrder.filledAmount >= buyOrder.amount) {
+            buyOrder.status = OrderStatus.Filled;
+            _unlockFunds(buyOrder);
+        }
+        if (sellOrder.filledAmount >= sellOrder.amount) {
+            sellOrder.status = OrderStatus.Filled;
+            _unlockFunds(sellOrder);
+        }
+        uint256 buyerFee = _calculateFee(trade.buyer, (trade.amount * trade.price) / 1e18, false);
+        uint256 sellerFee = _calculateFee(trade.seller, trade.amount, false);
+        balances[trade.buyer][buyOrder.baseToken].available += trade.amount - sellerFee;
+        balances[trade.seller][sellOrder.quoteToken].available += (trade.amount * trade.price) / 1e18 - buyerFee;
+        balances[feeRecipient][buyOrder.baseToken].available += sellerFee;
+        balances[feeRecipient][sellOrder.quoteToken].available += buyerFee;
+        emit TradeExecuted(
+            trade.id,
+            trade.buyOrderId,
+            trade.sellOrderId,
+            trade.buyer,
+            trade.seller,
+            buyOrder.baseToken,
+            buyOrder.quoteToken,
+            trade.amount,
+            trade.price
+        );
     }
 
     function _calculateFee(address user, uint256 amount, bool isMaker) internal view returns (uint256) {
@@ -513,6 +552,13 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Exchanges make money from fees
         NOTES: Makers add liquidity (lower fee), takers remove liquidity (higher fee)
         */
+        FeeStructure memory fees = userFees[user].enabled ? userFees[user] : defaultFees;
+        uint256 feeRate = isMaker ? fees.makerFee : fees.takerFee;
+        uint256 fee = (amount * feeRate) / 10000; // basis points
+        if (fee > fees.maxFee) {
+            fee = fees.maxFee;
+        }
+        return fee;
     }
 
     // =============================================================================
