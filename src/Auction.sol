@@ -218,6 +218,10 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
 
     event TokenWhitelisted(address indexed token);
 
+    event EmergencyPaused();
+    event EmergencyWithdrawn(address indexed token, uint256 amount);
+    event UserBlacklisted(address indexed user);
+
     // =============================================================================
     // MODIFIERS
     // =============================================================================
@@ -688,6 +692,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Safety mechanism for bugs or attacks
         SECURITY: Only emergency role can pause
         */
+        _pause();
+        emit EmergencyPaused();
     }
 
     function emergencyWithdraw(address token, uint256 amount) external {
@@ -697,6 +703,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Last resort if contract is compromised
         SECURITY: Only emergency role, use very carefully
         */
+        IERC20(token).safeTransfer(msg.sender, amount);
+        emit EmergencyWithdrawn(token, amount);
     }
 
     function blacklistUser(address user) external {
@@ -706,6 +714,8 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Compliance and security
         SECURITY: Only operators can blacklist
         */
+        blacklistedUsers[user] = true;
+        emit UserBlacklisted(user);
     }
 
     // =============================================================================
