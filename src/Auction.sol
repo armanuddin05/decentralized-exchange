@@ -565,7 +565,7 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
     //                      SIGNATURE VERIFICATION (Security)
     // =============================================================================
 
-    function _verifyOrderSignature(Order memory order, bytes memory signature) internal {
+    function _verifyOrderSignature(Order memory order, bytes memory signature) internal view{
         /*
         PURPOSE: Prove the user actually created this order
         IMPLEMENT:
@@ -576,6 +576,25 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Security - prevents fake orders
         NOTES: Uses EIP-712 standard for typed data signing
         */
+        bytes32 structHash = keccak256(
+            abi.encode(
+                ORDER_TYPEHASH,
+                order.id,
+                order.trader,
+                order.baseToken,
+                order.quoteToken,
+                order.amount,
+                order.price,
+                order.triggerPrice,
+                order.deadline,
+                uint8(order.orderType),
+                uint8(order.side),
+                order.nonce
+            )
+        );
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(signature);
+        require(signer == order.trader, "Invalid order signature");
     }
 
     function _verifyTradeSignature(Trade memory trade, bytes memory signature) internal view {
@@ -588,6 +607,19 @@ contract Auction is ReentrancyGuard, Pausable, EIP712, AccessControl {
         WHY: Security - prevents fake trades
         NOTES: Only backend should be able to create valid trade signatures
         */
+        bytes32 structHash = keccak256(
+            abi.encode(
+                TRADE_TYPEHASH,
+                trade.buyOrderId,
+                trade.sellOrderId,
+                trade.amount,
+                trade.price,
+                trade.timestamp
+            )
+        );
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(signature);
+        require(hasRole(MATCHER_ROLE, signer), "Invalid trade signature");
     }
 
     // =============================================================================
